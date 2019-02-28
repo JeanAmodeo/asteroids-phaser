@@ -19,6 +19,12 @@ var bullets;
 var asteroids;
 //asteroids is a group that contains all the Asteroid entities in the game
 
+var astroPresets = {
+    astroLarge: { sprite: 'astroL', maxSpeed:100, score: 20, nextSize: "astroMedium", parts: 2 },
+    astroMedium: { sprite: 'astroM', score: 50,maxSpeed:150,  nextSize: "astroSmall", parts: 2 },
+    astroSmall: {sprite: 'astroS',maxSpeed:200, score: 100 },
+}; 
+
 let game = new Phaser.Game(config);
 
 var Bullet = new Phaser.Class({
@@ -76,22 +82,33 @@ var Asteroid = new Phaser.Class({
 
     initialize:
 
-        function Asteroid(scene) {
-            Phaser.Physics.Arcade.Sprite.call(this, scene, 0, 0, 'astroL');
-            this.speed = 100;
+        function Asteroid(scene,size) {
+            
+            if (size === undefined || size == 0){size = "astroLarge"};
+            
+            Phaser.Physics.Arcade.Sprite.call(this, scene, 0, 0, astroPresets[size].sprite);
+            this.size = size;
+            this.score = astroPresets[size].score;
+            this.nextSize = astroPresets[size].nextSize;
+            this.parts = astroPresets[size].parts;
+
+            this.speed = astroPresets[size].maxSpeed;
         },
 
-    spawn: function () {
+    spawn: function (x,y,size) {
+        if (x===undefined){x = Phaser.Math.Between(520, 600)};
+        if (y===undefined){y = Phaser.Math.Between(520, 600)};
 
-        var pos = [Phaser.Math.Between(520, 600), Phaser.Math.Between(512, 600)];
+        var pos = [x,y];
+        // this.size = size;
 
         this.setActive(true);
         this.setVisible(true);
         this.setPosition(pos[0], pos[1]);
 
         this.rotation = Phaser.Math.Between(0, 180);
-
-        this.speed = Phaser.Math.Between(80, 200);
+        //console.log( this.size)
+        this.speed = Phaser.Math.Between(80, astroPresets[this.size].maxSpeed);
         // this.speed = 80;
 
         var angle = Phaser.Math.RND.angle();
@@ -107,7 +124,8 @@ var Asteroid = new Phaser.Class({
         this.setActive(false);
         this.setVisible(false);
         this.body.stop();
-        this.scene.spawnAstro();
+        for (var i = 0; i <astroPresets[this.size].parts; i++) {
+        this.scene.spawnAstro(this.x,this.y, astroPresets[this.size].nextSize);}
     }
 })
 
@@ -146,7 +164,7 @@ scene.create = function () {
     asteroids = this.physics.add.group({
         //creates a group of asteroids objects
         classType: Asteroid,
-        maxSize: 20,
+        maxSize: 60,
         runChildUpdate: true
     });
 
@@ -163,7 +181,7 @@ scene.create = function () {
     this.physics.add.overlap(bullets, asteroids, this.astroHit, this.checkHit, this);
 
     for (var i = 0; i < 6; i++) {
-        this.spawnAstro();
+        this.spawnAstro('','',"AstroLarge");
     }
 }
 
@@ -212,9 +230,9 @@ scene.astroHit = function (bullet, astro) {
     astro.kill();
 }
 
-scene.spawnAstro = function () {
+scene.spawnAstro = function (x,y,size) {
     var as = asteroids.get();
     if (as) {
-        as.spawn();
+        as.spawn(x,y,size);
     };
 }
