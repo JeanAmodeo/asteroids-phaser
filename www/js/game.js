@@ -19,21 +19,6 @@ var bullets;
 var asteroids;
 //asteroids is a group that contains all the Asteroid entities in the game
 
-var astroProps = {
-
-    asteroidLarge: {
-        score: 20,
-        nextSize: asteroidMedium
-    },
-    asteroidLarge: {
-        score: 50,
-        nextSize: asteroidSmall
-    },
-    asteroidSmall: {
-        score: 50
-    },
-};
-
 let game = new Phaser.Game(config);
 
 var Bullet = new Phaser.Class({
@@ -114,7 +99,7 @@ var Asteroid = new Phaser.Class({
         this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
     },
     update: function (time, delta) {
-        this.rotation += 0.01;
+        this.rotation+=0.01;
     },
 
     kill: function () {
@@ -227,13 +212,9 @@ scene.astroHit = function (bullet, astro) {
     astro.kill();
 }
 
-scene.spawnAstro = function (size, num) {
-
-    if (num === undefined) {
-        num = 1
+scene.spawnAstro = function () {
+    var as = asteroids.get();
+    if (as) {
+        as.spawn();
     };
-
-    for (var i = 0; i < num; i++) {
-        var astro = this.asteroids.spawn();
-    }
 }
