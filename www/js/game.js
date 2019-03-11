@@ -3,8 +3,8 @@ let scene = new Phaser.Scene('Game');
 var config = {
     type: Phaser.AUTO,
     parent: 'content',
-    width: 640,
-    height: 480,
+    width: 640*1.2,
+    height: 480*1.2,
     // pixelArt: true,
     physics: {
         default: 'arcade',
@@ -14,6 +14,8 @@ var config = {
 
 var interval = 0;
 //interval is the cooldwon time between shots
+
+var warp = 0;
 
 var invul = 0;
 var blink = 0;
@@ -45,14 +47,14 @@ var astroPresets = {
     astroSmall: {
         sprite: 'astroS',
         minSpeed: 150,
-        maxSpeed: 200,
+        maxSpeed: 180,
         score: 100
     },
 };
 
 var gSize = "astroLarge";
 //global size variable, contains the size of the last asteroid hit
-var lives = 3;
+var lives = 5;
 //global lives counter
 var score = 0;
 //global lives counter
@@ -118,8 +120,6 @@ var Asteroid = new Phaser.Class({
 
         function Asteroid(scene) {
             this.size = gSize;
-            // if (this.size === undefined || this.size == 0){this.size = "astroLarge"};
-
             Phaser.Physics.Arcade.Sprite.call(this, scene, 0, 0, astroPresets[this.size].sprite);
             this.score = astroPresets[this.size].score;
             this.nextSize = astroPresets[this.size].nextSize;
@@ -130,10 +130,10 @@ var Asteroid = new Phaser.Class({
     spawn: function (x, y, size) {
         //random start position
         if (x === undefined) {
-            x = Phaser.Math.Between(520, 600)
+            x = Phaser.Math.Between(0, this.sys.game.config.width - 50)
         };
         if (y === undefined) {
-            y = Phaser.Math.Between(520, 600)
+            y = Phaser.Math.Between(0, this.sys.game.config.height - 20)
         };
 
         var pos = [x, y];
@@ -150,7 +150,7 @@ var Asteroid = new Phaser.Class({
         this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
     },
     update: function (time, delta) {
-        this.rotation+=0.01;
+        this.rotation += 0.01;
     },
 
     kill: function () {
@@ -160,6 +160,9 @@ var Asteroid = new Phaser.Class({
         for (var i = 0; i < astroPresets[this.size].parts; i++) {
             //spawns a number of new asteroids of size = newSize
             this.scene.spawnAstro(this.x, this.y, astroPresets[this.size].nextSize);
+        }
+        if (this.size == "astroSmall") {
+            this.scene.spawnAstro("", "", "astroLarge");
         }
         score += astroPresets[this.size].score;
         //updates the score counter
@@ -200,11 +203,13 @@ scene.create = function () {
     //sets scene background to black
     //creates the lives counter (see CSS for custom font)
     tLives = this.add.text(20, 10, lives, {
-        fontFamily: '"Hyperspace"'
+        fontFamily: '"Hyperspace"',
+        fontSize: 20
     });
     //creates the score counter
     tScore = this.add.text(this.sys.game.config.width - 20, 10, score, {
-        fontFamily: '"HyperSpace"'
+        fontFamily: '"HyperSpace"',
+        fontSize: 20
     });
     tScore.setAlign('right');
     tScore.setOrigin(1, 0);
@@ -266,6 +271,7 @@ scene.create = function () {
 
     //controls
     shot = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    hyper = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     this.cursors = this.input.keyboard.createCursorKeys();
 
     //ship physics
@@ -324,6 +330,15 @@ scene.update = function (time) {
         }
     }
 
+    if (hyper.isDown && this.ship.alive && time > warp) {
+        fireSound.play();
+        //Hyperspace button, teleporting you to a random location on screen
+        x = Phaser.Math.Between(0, this.sys.game.config.width)
+        y = Phaser.Math.Between(0, this.sys.game.config.height)
+        this.ship.setPosition(x, y);
+        warp = time + 1000;
+    }
+
     // This is the flickering when hit
     if (!this.ship.alive) {
         this.ship.setVisible(false);
@@ -336,13 +351,13 @@ scene.update = function (time) {
     if (this.ship.alive === false && time > invul) {
         this.ship.setVisible(true);
         this.ship.alive = true;
-        invul = time + 5000;
+        invul = time + 6000;
 
     }
 
     //game over if all lives = 0
     if (lives == 0) {
-        if (confirm('Game Over\nReload ?')) {
+        if (confirm('Game Over\n'+'Score : '+score+'\nReload ?')) {
             window.location.reload();
         }
     }
