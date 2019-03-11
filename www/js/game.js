@@ -3,8 +3,8 @@ let scene = new Phaser.Scene('Game');
 var config = {
     type: Phaser.AUTO,
     parent: 'content',
-    width: 512,
-    height: 512,
+    width: 640,
+    height: 480,
     // pixelArt: true,
     physics: {
         default: 'arcade',
@@ -14,10 +14,49 @@ var config = {
 
 var interval = 0;
 //interval is the cooldwon time between shots
+
+var invul = 0;
+var blink = 0;
+//invulnerability and flickering timers
+
 var bullets;
 //bullets is a group that contains all the Bullet entities in the game
 var asteroids;
 //asteroids is a group that contains all the Asteroid entities in the game
+
+//global array, contains asteroids types and properties
+var astroPresets = {
+    astroLarge: {
+        sprite: 'astroL',
+        minSpeed: 50,
+        maxSpeed: 100,
+        score: 20,
+        nextSize: "astroMedium",
+        parts: 2
+    },
+    astroMedium: {
+        sprite: 'astroM',
+        score: 50,
+        minSpeed: 100,
+        maxSpeed: 150,
+        nextSize: "astroSmall",
+        parts: 2
+    },
+    astroSmall: {
+        sprite: 'astroS',
+        minSpeed: 150,
+        maxSpeed: 200,
+        score: 100
+    },
+};
+
+var gSize = "astroLarge";
+//global size variable, contains the size of the last asteroid hit
+var lives = 3;
+//global lives counter
+var score = 0;
+//global lives counter
+
 
 let game = new Phaser.Game(config);
 
@@ -28,12 +67,14 @@ var Bullet = new Phaser.Class({
 
         function Bullet(scene) {
             Phaser.Physics.Arcade.Image.call(this, scene, 0, 0, 'bullet');
+
             this.speed = 500;
             this.lifespan = 1000;
         },
 
     fire: function (ship) {
         //function to call when ship fires, spawns bullets
+
         this.lifespan = 1000;
 
         this.setActive(true);
@@ -55,7 +96,6 @@ var Bullet = new Phaser.Class({
     },
     update: function (time, delta) {
         this.lifespan -= delta;
-
         if (this.lifespan <= 0) {
             //bullets disappear after ((lifetime))
             this.kill();
@@ -72,27 +112,38 @@ var Bullet = new Phaser.Class({
 
 var Asteroid = new Phaser.Class({
     //Asteroid class
-    Extends: Phaser.Physics.Arcade.Sprite,
+    Extends: Phaser.Physics.Arcade.Image,
 
     initialize:
 
         function Asteroid(scene) {
-            Phaser.Physics.Arcade.Sprite.call(this, scene, 0, 0, 'astroL');
-            this.speed = 100;
+            this.size = gSize;
+            // if (this.size === undefined || this.size == 0){this.size = "astroLarge"};
+
+            Phaser.Physics.Arcade.Sprite.call(this, scene, 0, 0, astroPresets[this.size].sprite);
+            this.score = astroPresets[this.size].score;
+            this.nextSize = astroPresets[this.size].nextSize;
+            this.parts = astroPresets[this.size].parts;
+            this.speed = astroPresets[this.size].maxSpeed;
         },
 
-    spawn: function () {
+    spawn: function (x, y, size) {
+        //random start position
+        if (x === undefined) {
+            x = Phaser.Math.Between(520, 600)
+        };
+        if (y === undefined) {
+            y = Phaser.Math.Between(520, 600)
+        };
 
-        var pos = [Phaser.Math.Between(520, 600), Phaser.Math.Between(512, 600)];
-
+        var pos = [x, y];
+        gSize = size;
         this.setActive(true);
         this.setVisible(true);
         this.setPosition(pos[0], pos[1]);
 
         this.rotation = Phaser.Math.Between(0, 180);
-
-        this.speed = Phaser.Math.Between(80, 200);
-        // this.speed = 80;
+        this.speed = Phaser.Math.Between(astroPresets[this.size].minSpeed, astroPresets[this.size].maxSpeed);
 
         var angle = Phaser.Math.RND.angle();
 
@@ -104,10 +155,19 @@ var Asteroid = new Phaser.Class({
 
     kill: function () {
         //function call when asteroids die
+        //plays impact sound
+        destSound.play();
+        for (var i = 0; i < astroPresets[this.size].parts; i++) {
+            //spawns a number of new asteroids of size = newSize
+            this.scene.spawnAstro(this.x, this.y, astroPresets[this.size].nextSize);
+        }
+        score += astroPresets[this.size].score;
+        //updates the score counter
+        tScore.setText(score);
+        this.body.stop();
         this.setActive(false);
         this.setVisible(false);
-        this.body.stop();
-        this.scene.spawnAstro();
+        this.destroy();
     }
 })
 
@@ -121,13 +181,68 @@ scene.preload = function () {
     this.load.image('astroL', 'assets/asteroidLarge.png');
     this.load.image('astroM', 'assets/asteroidMedium.png');
     this.load.image('astroS', 'assets/asteroidSmall.png');
+
+    //loading sounds
+    this.load.audio('fire', [
+        'assets/fire.ogg',
+        'assets/fire.m4a'
+    ]);
+
+    this.load.audio('destroyed', [
+        'assets/destroyed.ogg',
+        'assets/destroyed.mp3'
+    ]);
 };
 
 scene.create = function () {
 
     scene.cameras.main.setBackgroundColor('#000000')
     //sets scene background to black
+    //creates the lives counter (see CSS for custom font)
+    tLives = this.add.text(20, 10, lives, {
+        fontFamily: '"Hyperspace"'
+    });
+    //creates the score counter
+    tScore = this.add.text(this.sys.game.config.width - 20, 10, score, {
+        fontFamily: '"HyperSpace"'
+    });
+    tScore.setAlign('right');
+    tScore.setOrigin(1, 0);
+
+    copyright = this.add.text(this.sys.game.config.width / 2, this.sys.game.config.height - 20, "©2019 JATARI INC ", {
+        fontFamily: '"HyperSpace"',
+        fontSize: 10
+    });
+    copyright.setOrigin(0.5, 0);
+
+    //impact and fire sounds
+    fireSound = this.sound.add('fire');
+    destSound = this.sound.add('destroyed');
+
+    //particles creation
+    particles = this.add.particles('bullet');
+    particles.createEmitter({
+        angle: {
+            min: 0,
+            max: 360
+        },
+        lifespan: 200,
+        speed: {
+            start: 100,
+            end: 0
+        },
+        quantity: 10,
+        scale: {
+            start: 2,
+            end: 0.5
+        },
+        on: false
+    });
+
+    //creates a ship sprite
     this.ship = this.physics.add.sprite(this.sys.game.config.width / 2, this.sys.game.config.height / 2, 'ship');
+    this.ship.alive = true;
+
     // bullets = this.physics.add.group({
     //     key: 'bullet',
     //     repeat: 30,
@@ -142,11 +257,10 @@ scene.create = function () {
         //Uses the update function defined in the class
     });
 
-
     asteroids = this.physics.add.group({
         //creates a group of asteroids objects
         classType: Asteroid,
-        maxSize: 20,
+        maxSize: 30,
         runChildUpdate: true
     });
 
@@ -161,20 +275,28 @@ scene.create = function () {
 
     //check collisions between asteroids and bullets
     this.physics.add.overlap(bullets, asteroids, this.astroHit, this.checkHit, this);
+    this.physics.add.overlap(this.ship, asteroids, this.shipHit, this.checkHitShip, this);
 
+    //spawns 6 large asteroids
     for (var i = 0; i < 6; i++) {
-        this.spawnAstro();
+        this.spawnAstro('', '', "astroLarge");
     }
 }
 
 scene.update = function (time) {
+    //wrap function enables border traversal for the ship, asteroids and bullets, with an offset of 5
 
     this.physics.world.wrap(this.ship, 5);
     this.physics.world.wrap(bullets, 5);
     this.physics.world.wrap(asteroids, 20);
-    //wrap function enables border traversal for the ship, asteroids and bullets, with an offset of 5
     // this.ship.body.setVelocity(0);
+    // if (!this.ship.alive) {
+    //     this.ship.setVisible(false);
+    // } else {
+    //     this.ship.setVisible(true);
+    // }
 
+    //ship physics
     if (this.cursors.right.isDown) {
         this.ship.setAngularVelocity(300);
     } else if (this.cursors.left.isDown) {
@@ -184,7 +306,6 @@ scene.update = function (time) {
     }
 
     if (this.cursors.up.isDown) {
-        // console.log(this.ship.body.acceleration);
         this.physics.velocityFromRotation(this.ship.rotation, 200, this.ship.body.acceleration);
         //alternates ship texture
         this.ship.setTexture('ship2');
@@ -193,28 +314,80 @@ scene.update = function (time) {
         this.ship.setTexture('ship');
     }
 
-    if (shot.isDown && time > interval) {
-        //console.log(time);
+    //Shooting
+    if (shot.isDown && time > interval && this.ship.alive) {
         var bullet = bullets.get();
         if (bullet) {
             bullet.fire(this.ship);
+            fireSound.play();
             interval = time + 100;
+        }
+    }
+
+    // This is the flickering when hit
+    if (!this.ship.alive) {
+        this.ship.setVisible(false);
+        if (time > blink) {
+            this.ship.setVisible(true);
+            blink = time + 100;
+        }
+    }
+    //Invulnerability when hit
+    if (this.ship.alive === false && time > invul) {
+        this.ship.setVisible(true);
+        this.ship.alive = true;
+        invul = time + 5000;
+
+    }
+
+    //game over if all lives = 0
+    if (lives == 0) {
+        if (confirm('Game Over\nReload ?')) {
+            window.location.reload();
+        }
+    }
+
+    //win if no more asteroids
+    if (asteroids.children.entries.length === 0) {
+        if (confirm('You Win !\nReload ?')) {
+            window.location.reload();
         }
     }
 };
 
-scene.checkHit = function (bullet, astro) {
-    return (bullet.active && astro.active);
+scene.checkHit = function (obj1, obj2) {
+    //checks if two objects are active
+    return (obj1.active && obj2.active);
+}
+
+scene.checkHitShip = function (obj, ship) {
+    //specific function called when the ship is hit
+    return (obj.active && ship.alive);
 }
 
 scene.astroHit = function (bullet, astro) {
+    //kills the colliding bullet and asteroid
+    //emits the predefined particles
+    particles.emitParticleAt(astro.x, astro.y);
     bullet.kill();
     astro.kill();
 }
+scene.shipHit = function (ship, astro) {
+    //called when the ship is hit
+    if (ship.alive) {
+        //plays the impact sound
+        destSound.play();
+        ship.alive = false;
+        lives--;
+    };
+    //update the lives counter
+    tLives.setText(lives);
+}
 
-scene.spawnAstro = function () {
+scene.spawnAstro = function (x, y, size) {
+    //spawns an asteroid
     var as = asteroids.get();
     if (as) {
-        as.spawn();
+        as.spawn(x, y, size);
     };
 }
