@@ -2,7 +2,7 @@ let scene = new Phaser.Scene('Game');
 
 var config = {
     type: Phaser.AUTO,
-    parent: 'content',
+    parent: 'game-container',
     width: 640*1.2,
     height: 480*1.2,
     // pixelArt: true,
@@ -161,6 +161,7 @@ var Asteroid = new Phaser.Class({
             //spawns a number of new asteroids of size = newSize
             this.scene.spawnAstro(this.x, this.y, astroPresets[this.size].nextSize);
         }
+        //comment here to disable endless mode
         if (this.size == "astroSmall") {
             this.scene.spawnAstro("", "", "astroLarge");
         }
@@ -265,7 +266,7 @@ scene.create = function () {
     asteroids = this.physics.add.group({
         //creates a group of asteroids objects
         classType: Asteroid,
-        maxSize: 30,
+        maxSize: 60,
         runChildUpdate: true
     });
 
@@ -351,7 +352,7 @@ scene.update = function (time) {
     if (this.ship.alive === false && time > invul) {
         this.ship.setVisible(true);
         this.ship.alive = true;
-        invul = time + 6000;
+        invul = time + 1000;
 
     }
 
